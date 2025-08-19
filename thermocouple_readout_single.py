@@ -18,18 +18,16 @@ duration = 300           # total run time in seconds
 log_interval = 1        # how often to log (seconds)
 tc_channels = [f"AIN{i}" for i in range(14)]    # thermocouple channels
                                                 # using 0 through to 13 because single readout not differential (all Analog INputs relative to ground)
-
-# Setup LabJack
 handle = ljm.openS("T7", "USB", "ANY")
 tc = thermocouples["T"]
 
-# CSV File
+# CSV File Setup
 with open(log_file, mode='w', newline='') as file:
     writer = csv.writer(file)
     header = ["Timestamp", "CJ Temp (°C)"]
     for ch in tc_channels:
         header.append(f"{ch} Voltage (mV)")
-        header.append(f"{ch}TC Temp (°C)")
+        header.append(f"{ch} Temp (°C)")
     writer.writerow(header)
 
 # Setup Plot
@@ -43,7 +41,7 @@ ax.grid(True)
 ax.legend()
 
 timestamps = []
-temperatures = []
+temp_data = [ch: [] for ch in tc_channels]
 
 # Logging Loop
 start_time = time.time()
@@ -70,10 +68,16 @@ try:
 
         # Log data for each channel
         for ch in tc_channels:
-            voltage_mV = ljm.eReadName(handle, tc_channel) * 1000
-            tc_temp_C = tc.inverse_CmV(voltage_mV, Tref=cj_temp_C)
+            try:
+                voltage_mV = ljm.eReadName(handle, ch) * 1000
+                tc_temp_C = tc.inverse_CmV(voltage_mV, Tref=cj_temp_C)
+            except Exception as e:
+                print(f"Read error on {ch}: {e}")
+                voltage_mV, tc_temp_C = float("nan"), float("nan")
+
             row.append(f"{voltage_mV:.3f}")
-            row.append(f"tc_temp_C:.2f}")
+            row.append(f"{tc_temp_C:.2f}")
+            temp_data[ch].append(tc_temp_C)
 
         # Log to CSV 
         with open(log_file, mode='a', newline='') as file:
@@ -82,17 +86,17 @@ try:
 
 
         # Update Plot 
-        timestamps.append(now.strftime("%H:%M:%S"))
-        temperatures.append(tc_temp_C)
-        x_vals = [i * log_interval for i in range(len(temperatures))]       # X-axis will be time in seconds since start
-        line.set_xdata(x_vals)
-        line.set_ydata(temperatures)
+        x_vals = [i * log_interval for i in range(len(temp_data[tc_channels[0]))]       # X-axis will be time in seconds since start
+        for ch, line in zip(tc_channels, lines):
+                  line.set_xdata(x_vals)
+                  line.set_ydata(temp_data[ch])
+
         ax.set_xlim(0, duration)
-        ax.set_xticks(range(0, duration + 1, 30))  # show ticks every 10 seconds
         ax.relim()
         ax.autoscale_view()
         fig.canvas.draw()
         fig.canvas.flush_events()
+
         time.sleep(log_interval)
 
 except KeyboardInterrupt:
