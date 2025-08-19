@@ -1,5 +1,5 @@
 
-## Single lead readout
+## Multiple lead readout
 # Negative in GND and positive in AIN0
 
 # %% Test readout for 5 minutes
@@ -16,21 +16,26 @@ import pandas as pd
 log_file = "temperature_log.csv"
 duration = 300           # total run time in seconds
 log_interval = 1        # how often to log (seconds)
-tc_channel = "AIN0"     # thermocouple channel
+tc_channels = [f"AIN{i}" for i in range(14)]    # thermocouple channels
+                                                # using 0 through to 13 because single readout not differential (all Analog INputs relative to ground)
 
 # Setup LabJack
 handle = ljm.openS("T7", "USB", "ANY")
-tc = thermocouples['T']
+tc = thermocouples["T"]
 
 # CSV File
 with open(log_file, mode='w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(["Timestamp", "Voltage (mV)", "CJ Temp (°C)", "TC Temp (°C)"])
+    header = ["Timestamp", "CJ Temp (°C)"]
+    for ch in tc_channels:
+        header.append(f"{ch} Voltage (mV)")
+        header.append(f"{ch}TC Temp (°C)")
+    writer.writerow(header)
 
 # Setup Plot
 plt.ion()
 fig, ax = plt.subplots()
-line, = ax.plot([], [], linestyle='None', marker='o', label="Thermocouple Temp (°C)")
+lines = [ax.plot([], [], marker='o', label=ch)[0] for ch in tc_channels]
 ax.set_xlabel("Time (seconds)")
 ax.set_ylabel("Temperature (°C)")
 ax.set_title("Thermocouple Temperature")
@@ -52,40 +57,42 @@ try:
 
         # Read LabJack Data 
         try:
-            voltage_mV = ljm.eReadName(handle, tc_channel) * 1000
             cj_temp_K = ljm.eReadName(handle, "TEMPERATURE_DEVICE_K")
             cj_temp_C = cj_temp_K - 273.15
-            tc_temp_C = tc.inverse_CmV(voltage_mV, Tref=cj_temp_C)
         except Exception as e:
             print(f"Read error: {e}")
             voltage_mV = float('nan')
             cj_temp_C = float('nan')
             tc_temp_C = float('nan')
+        
+        # Create respective row
+        row = [now.strftime("%H:%M:%S"), f"{cj_temp_C:.2f}"]
+
+        # Log data for each channel
+        for ch in tc_channels:
+            voltage_mV = ljm.eReadName(handle, tc_channel) * 1000
+            tc_temp_C = tc.inverse_CmV(voltage_mV, Tref=cj_temp_C)
+            row.append(f"{voltage_mV:.3f}")
+            row.append(f"tc_temp_C:.2f}")
 
         # Log to CSV 
         with open(log_file, mode='a', newline='') as file:
             writer = csv.writer(file)
-            writer.writerow([now.strftime("%H:%M:%S"), f"{voltage_mV:.3f}", f"{cj_temp_C:.2f}", f"{tc_temp_C:.2f}"])
+            writer.writerow(row)
+
 
         # Update Plot 
         timestamps.append(now.strftime("%H:%M:%S"))
         temperatures.append(tc_temp_C)
- 
-        # X-axis will be time in seconds since start
-        x_vals = [i * log_interval for i in range(len(temperatures))]
-
+        x_vals = [i * log_interval for i in range(len(temperatures))]       # X-axis will be time in seconds since start
         line.set_xdata(x_vals)
         line.set_ydata(temperatures)
-
         ax.set_xlim(0, duration)
         ax.set_xticks(range(0, duration + 1, 30))  # show ticks every 10 seconds
-
         ax.relim()
         ax.autoscale_view()
-
         fig.canvas.draw()
         fig.canvas.flush_events()
-
         time.sleep(log_interval)
 
 except KeyboardInterrupt:
@@ -97,4 +104,3 @@ finally:
     plt.show()
     print(f"\nLogging complete. Data saved to: {log_file}")
 
-# %%
