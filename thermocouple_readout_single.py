@@ -16,8 +16,10 @@ import pandas as pd
 log_file = "temperature_log.csv"
 duration = 300           # total run time in seconds
 log_interval = 1        # how often to log (seconds)
-tc_channels = [f"AIN{i}" for i in range(14)]    # thermocouple channels
-                                                # using 0 through to 13 because single readout not differential (all Analog INputs relative to ground)
+#tc_channels = [f"AIN{i}" for i in range(14)]    # thermocouple channels
+                                                # can use 0 through to 13 because single readout not differential (all Analog INputs relative to ground)
+tc_channels = [f"AIN{i}" for i in range(2)]     #only 3 thermocouples hooked up currently
+
 handle = ljm.openS("T7", "USB", "ANY")
 tc = thermocouples["T"]
 
