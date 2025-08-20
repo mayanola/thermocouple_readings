@@ -41,7 +41,7 @@ ax.grid(True)
 ax.legend()
 
 timestamps = []
-temp_data = [ch: [] for ch in tc_channels]
+temp_data = {ch: [] for ch in tc_channels}
 
 # Logging Loop
 start_time = time.time()
@@ -86,7 +86,7 @@ try:
 
 
         # Update Plot 
-        x_vals = [i * log_interval for i in range(len(temp_data[tc_channels[0]))]       # X-axis will be time in seconds since start
+        x_vals = [i * log_interval for i in range(len(temp_data[tc_channels[0]]))]       # X-axis will be time in seconds since start
         for ch, line in zip(tc_channels, lines):
                   line.set_xdata(x_vals)
                   line.set_ydata(temp_data[ch])
