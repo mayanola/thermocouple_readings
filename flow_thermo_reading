@@ -48,7 +48,7 @@ tc = thermocouples["T"]
 # CSV File Setup
 with open(log_file, mode='w', newline='') as file:
     writer = csv.writer(file)
-    header = ["Timestamp", "CJ Temp (°C)", "Flow (L/min)"]
+    header = ["Timestamp", "CJ Temp (°C)", "Flow (L/min)", "Pressure (PSI)"]
     for ch in tc_channels:
         header.append(f"{ch} Voltage (mV)")
         header.append(f"{ch} Temp (°C)")
@@ -74,8 +74,8 @@ try:
         elapsed = time.time() - start_time
         if elapsed > duration:
             break
-
-        now = datetime.now()
+	
+	now = datetime.now()
 
 	# Flow sensor readout
 	ljm.waitForNextInterval(intervalHandle)
@@ -83,6 +83,13 @@ try:
     	freqHz = ljm.eReadName(handle, readNames[1])
     	flow_lpm = freqHz / k_factor
     	print("Measured Frequency: %.3f Hz | Flow: %.3f L/min" % (freqHz, flow_lpm))
+	
+	# Pressure sensor readout and voltage conversion
+    	voltage = ljm.eReadName(handle, "AIN0")
+    	pressure_psi = (voltage - 0.5) * (30.0 / 4.0) 		# convert voltage to PSI
+    	pressure_psi = max(0, pressure_psi)   # clamp (noise below 0.5V)
+    
+	
 	
 
         # Read thermocouple Data 
@@ -96,7 +103,7 @@ try:
             tc_temp_C = float('nan')
         
         # Create respective row
-        row = [now.strftime("%H:%M:%S"), f"{cj_temp_C:.2f}", f"{flow_lpm:.3f}"]
+        row = [now.strftime("%H:%M:%S"), f"{cj_temp_C:.2f}", f"{flow_lpm:.3f}", f"{pressure_psi:.3f}"]
 
         # Log data for each channel
         for ch in tc_channels:
